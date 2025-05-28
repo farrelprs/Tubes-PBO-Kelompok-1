@@ -2,24 +2,34 @@ package com.pboToDoList.ToDoList.controller;
 
 import com.pboToDoList.ToDoList.category.Category;
 import com.pboToDoList.ToDoList.category.CategoryService;
+import com.pboToDoList.ToDoList.repository.RuserRepository;
+import com.pboToDoList.ToDoList.user.RegularUser;
+import org.springframework.security.core.Authentication;
+import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-@RestController
+@Controller
 @RequestMapping("/category")
 public class CategoryController {
 
     private final CategoryService categoryService;
+    private final RuserRepository ruserRepository;
 
-    public CategoryController(CategoryService categoryService) {
+    public CategoryController(CategoryService categoryService, RuserRepository ruserRepository) {
         this.categoryService = categoryService;
+        this.ruserRepository = ruserRepository;
     }
 
-    @PostMapping
-    public String addCategory(@RequestBody Category category) {
-        categoryService.addCategory(category);
-        return "Category has been added";
+    @PostMapping("/add")
+    public String addCategory(@ModelAttribute Category category, Authentication authentication) {
+        String email = authentication.getName();
+        RegularUser user = ruserRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        category.setRuser(user);
+        categoryService.addCategory(category, user);
+        return "redirect:/task/my-tasks";
     }
 
     @GetMapping
@@ -27,10 +37,10 @@ public class CategoryController {
         return categoryService.getAllCategories();
     }
 
-    @DeleteMapping("{CategoryId}")
-    public String deleteCategoryDetails(@PathVariable("CategoryId") int CategoryId){
-        categoryService.deleteCategory(CategoryId);
-        return "Category has been deleted";
+    @PostMapping("/delete")
+    public String deleteCategory(@RequestParam("categoryId") int categoryId) {
+        categoryService.deleteCategory(categoryId);
+        return "redirect:/task/my-tasks";
     }
 }
 

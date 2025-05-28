@@ -3,9 +3,11 @@ package com.pboToDoList.ToDoList.implement;
 import com.pboToDoList.ToDoList.category.Category;
 import com.pboToDoList.ToDoList.category.CategoryService;
 import com.pboToDoList.ToDoList.repository.CategoryRepository;
+import com.pboToDoList.ToDoList.user.RegularUser;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class CategoryImplements implements CategoryService {
@@ -17,12 +19,9 @@ public class CategoryImplements implements CategoryService {
     }
 
     @Override
-    public void addCategory(Category category) {
-        if (categoryRepository.findByName(category.getName()).isPresent()) {
-            throw new RuntimeException("Category name already exists");
-        }else{
-            categoryRepository.save(category);
-        }
+    public void addCategory(Category category, RegularUser user) {
+        category.setRuser(user);
+        categoryRepository.save(category);
     }
 
     @Override
@@ -31,8 +30,23 @@ public class CategoryImplements implements CategoryService {
     }
 
     @Override
-    public void deleteCategory(int CategoryId){
-        categoryRepository.deleteById(CategoryId);
+    public void deleteCategory(int categoryId) {
+        categoryRepository.deleteById(categoryId);
+    }
+
+    @Override
+    public List<Category> getCategoriesByUser(RegularUser user) {
+        return categoryRepository.findByRuser(user);
+    }
+
+    @Override
+    public Optional<Category> getCategoryById(Integer id) {
+        return categoryRepository.findById(id);
+    }
+
+    @Override
+    public Optional<Category> findById(Integer id) {
+        return categoryRepository.findById(id);
     }
 }
 
