@@ -1,63 +1,121 @@
 package com.pboToDoList.ToDoList.controller;
 
+import com.pboToDoList.ToDoList.category.Category;
+import com.pboToDoList.ToDoList.category.CategoryService;
 import com.pboToDoList.ToDoList.repository.RuserRepository;
 import com.pboToDoList.ToDoList.task.EveryTask;
 import com.pboToDoList.ToDoList.task.Task;
+import com.pboToDoList.ToDoList.task.TaskPriority;
 import com.pboToDoList.ToDoList.user.RegularUser;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
-
 import java.util.List;
+import java.util.Optional;
 
-@RestController
+@Controller
 @RequestMapping("/task")
 public class TaskController {
 
     private EveryTask etask;
     private RuserRepository ruserRepository;
+    private CategoryService categoryService;
 
-    @Autowired
-    public TaskController(EveryTask etask, RuserRepository ruserRepository) {
+    public TaskController(EveryTask etask, RuserRepository ruserRepository, CategoryService categoryService) {
         this.etask = etask;
         this.ruserRepository = ruserRepository;
+        this.categoryService = categoryService;
     }
 
-    @GetMapping("{taskId}")
-    public Task getTaskDetails(@PathVariable("taskId") int taskId){
-        return etask.getTask(taskId);
+    @GetMapping("/my-tasks")
+    public String showUserTasks(Model model, Authentication authentication) {
+        String email = authentication.getName();
+        RegularUser user = ruserRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        model.addAttribute("user", user);
+        model.addAttribute("tasks", etask.getTasksForUser(user));
+        model.addAttribute("priorities", TaskPriority.values());
+        model.addAttribute("categories", categoryService.getCategoriesByUser(user));
+
+        return "my-tasks";
     }
 
-    @PostMapping("/add/{username}")
-    public String addTaskDetails(@PathVariable String username, @RequestBody Task task) {
-        RegularUser ruser = ruserRepository.findByUsername(username).orElseThrow(() -> new RuntimeException("User not found"));
+    @GetMapping("/add")
+    public String showAddForm(Model model, Authentication authentication) {
+        String email = authentication.getName();
+        RegularUser user = ruserRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
-        task.setUser(ruser);
-        etask.addTask(task);
-        return "Task has been created for user " + ruser.getUsername();
+        model.addAttribute("task", new Task());
+        model.addAttribute("priorities", TaskPriority.values());
+        model.addAttribute("categories", categoryService.getCategoriesByUser(user));
+        return "add-task";
     }
 
-    @PutMapping("/{taskTitle}")
-    public ResponseEntity<String> updateTaskDetails(@PathVariable String taskTitle, @RequestBody Task task){
-        try {
-            etask.updateTask(taskTitle, task);
-            return ResponseEntity.ok("Task has been updated");
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Update failed: " + e.getMessage());
+
+    @PostMapping("/add")
+    public String addTask(@ModelAttribute Task task,
+                          @RequestParam(value = "categoryId", required = false) Integer categoryId,
+                          Authentication authentication) {
+
+        String email = authentication.getName();
+        RegularUser user = ruserRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        task.setUser(user);
+
+        if (categoryId != null) {
+            Category category = categoryService.findById(categoryId)
+                    .orElse(null);
+            task.setCategory(category);
+        } else {
+            task.setCategory(null);
         }
+
+        etask.addTask(task);
+
+        return "redirect:/task/my-tasks";
     }
 
-    @DeleteMapping("/{taskTitle}")
-    public String deleteTaskDetails(@PathVariable("taskTitle") String taskTitle){
-        etask.deleteTask(taskTitle);
-        return "Task has been deleted";
+    @PostMapping("/delete")
+    public String deleteTask(@RequestParam("id") int id) {
+        etask.deleteTask(id);
+        return "redirect:/task/my-tasks";
     }
 
-    @GetMapping
-    public List<Task> getAllTasks() {
-        return etask.getAllTasks();
+    @GetMapping("/edit")
+    public String showEditForm(@RequestParam int id, Model model, Authentication authentication) {
+        String email = authentication.getName();
+        RegularUser user = ruserRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        Optional<Task> task = etask.findById(id);
+        if (task.isEmpty()) {
+            throw new RuntimeException("Task not found");
+        }
+
+        Task taskObj = task.get();
+        model.addAttribute("task", taskObj);
+        model.addAttribute("priorities", TaskPriority.values());
+        model.addAttribute("categories", categoryService.getCategoriesByUser(user));
+        return "edit-task";
     }
 
+    @PostMapping("/edit")
+    public String updateTask(@ModelAttribute Task task,
+                             @RequestParam(value = "categoryId", required = false) Integer categoryId) {
+
+        if (categoryId != null) {
+            Category category = categoryService.findById(categoryId)
+                    .orElse(null);
+            task.setCategory(category);
+        } else {
+            task.setCategory(null);
+        }
+
+        etask.updateTask(task);
+
+        return "redirect:/task/my-tasks";
+    }
 }
