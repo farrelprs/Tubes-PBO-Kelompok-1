@@ -4,9 +4,12 @@ import com.pboToDoList.ToDoList.repository.CategoryRepository;
 import com.pboToDoList.ToDoList.repository.TaskRepository;
 import com.pboToDoList.ToDoList.task.Task;
 import com.pboToDoList.ToDoList.task.EveryTask;
+import com.pboToDoList.ToDoList.task.TaskPriority;
+import com.pboToDoList.ToDoList.user.RegularUser;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class TaskImplements implements EveryTask {
@@ -19,32 +22,28 @@ public class TaskImplements implements EveryTask {
     }
 
     @Override
-    public void updateTask(String taskTitle, Task task) {
-        Task existingTask = taskRepository.findByTitle(taskTitle)
+    public void updateTask(Task updatedTask) {
+        Task existingTask = taskRepository.findById(updatedTask.getId())
                 .orElseThrow(() -> new RuntimeException("Task not found"));
 
-        existingTask.setDescription(task.getDescription());
-        existingTask.setDeadline(task.getDeadline());
-        existingTask.setProgress(task.getProgress());
-        existingTask.setPriority(task.getPriority());
-
-        if (task.getCategory() != null && task.getCategory().getName() != null) {
-            Category category = categoryRepository.findByName(task.getCategory().getName())
-                    .orElseThrow(() -> new RuntimeException("Category not found"));
-            existingTask.setCategory(category);
-        }
+        existingTask.setTitle(updatedTask.getTitle());
+        existingTask.setDescription(updatedTask.getDescription());
+        existingTask.setDeadline(updatedTask.getDeadline());
+        existingTask.setPriority(updatedTask.getPriority());
+        existingTask.setProgress(updatedTask.getProgress());
+        existingTask.setCategory(updatedTask.getCategory());
 
         taskRepository.save(existingTask);
     }
-
 
     @Override
     public void addTask(Task task) {
         if (task.getCategory() != null && task.getCategory().getName() != null) {
             String name = task.getCategory().getName();
+            RegularUser user = task.getUser();
 
-            Category existingCategory = categoryRepository.findByName(name)
-                    .orElseThrow(() -> new RuntimeException("Category '" + name + "' not found"));
+            Category existingCategory = categoryRepository.findByNameAndRuser(name, user)
+                    .orElseThrow(() -> new RuntimeException("Category '" + name + "' not found for user"));
 
             task.setCategory(existingCategory);
         }
@@ -52,20 +51,25 @@ public class TaskImplements implements EveryTask {
         taskRepository.save(task);
     }
 
-
     @Override
-    public void deleteTask(String taskTitle){
-        Task task = taskRepository.findByTitle(taskTitle)
+    public void deleteTask(int taskId){
+        Task task = taskRepository.findById(taskId)
             .orElseThrow(() -> new RuntimeException("Task not found"));
 
         taskRepository.delete(task);
     }
 
     @Override
-    public Task getTask(int taskId) { return taskRepository.findById(taskId).orElse(null); }
-
-    @Override
     public List<Task> getAllTasks() {
         return taskRepository.findAll();
+    }
+
+    @Override
+    public List<Task> getTasksForUser(RegularUser user) {
+        return taskRepository.findByRuser(user);
+    }
+    @Override
+    public Optional<Task> findById(int taskId){
+        return taskRepository.findById(taskId);
     }
 }
