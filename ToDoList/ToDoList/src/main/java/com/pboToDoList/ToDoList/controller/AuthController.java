@@ -65,7 +65,7 @@ public class AuthController {
 
     @GetMapping("/login")
     public String login() {
-        return "login"; // serves login.html
+        return "login"; 
     }
 
 }
